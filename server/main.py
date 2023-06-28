@@ -1,6 +1,19 @@
-import logging
 import os
 from dotenv import load_dotenv
+
+def get_bot_key():
+    load_dotenv(dotenv_path='./.env')
+    BOT_KEY = os.getenv('BOT_KEY')
+    return BOT_KEY
+
+# pylint: disable=unused-argument, wrong-import-position
+# This program is dedicated to the public domain under the CC0 license.
+
+"""
+Basic example for a bot that uses inline keyboards. For an in-depth explanation, check out
+ https://github.com/python-telegram-bot/python-telegram-bot/wiki/InlineKeyboard-Example.
+"""
+import logging
 
 from telegram import __version__ as TG_VER
 
@@ -15,8 +28,8 @@ if __version_info__ < (20, 0, 0, "alpha", 1):
         f"{TG_VER} version of this example, "
         f"visit https://docs.python-telegram-bot.org/en/v{TG_VER}/examples.html"
     )
-from telegram import ForceReply, Update
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
 
 # Enable logging
 logging.basicConfig(
@@ -25,49 +38,49 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# Define a few command handlers. These usually take the two arguments update and
-# context.
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a message when the command /start is issued."""
-    user = update.effective_user
-    await update.message.reply_html(
-        rf"Hi {user.mention_html()}!",
-        reply_markup=ForceReply(selective=True),
-    )
+    """Sends a message with three inline buttons attached."""
+    keyboard = [
+        [
+            InlineKeyboardButton("Option 1", callback_data="1"),
+            InlineKeyboardButton("Option 2", callback_data="2"),
+        ],
+        [InlineKeyboardButton("Option 3", callback_data="3")],
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await update.message.reply_text("Please choose:", reply_markup=reply_markup)
+
+
+async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Parses the CallbackQuery and updates the message text."""
+    query = update.callback_query
+
+    # CallbackQueries need to be answered, even if no notification to the user is needed
+    # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
+    await query.answer()
+
+    await query.edit_message_text(text=f"Selected option: {query.data}")
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a message when the command /help is issued."""
-    await update.message.reply_text("Help!")
-
-
-async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Echo the user message."""
-    await update.message.reply_text(update.message.text)
+    """Displays info on how to use the bot."""
+    await update.message.reply_text("Use /start to test this bot.")
 
 
 def main() -> None:
-    """Start the bot."""
+    """Run the bot."""
     # Create the Application and pass it your bot's token.
     application = Application.builder().token(get_bot_key()).build()
 
-    # on different commands - answer in Telegram
     application.add_handler(CommandHandler("start", start))
+    application.add_handler(CallbackQueryHandler(button))
     application.add_handler(CommandHandler("help", help_command))
-
-    # on non command i.e message - echo the message on Telegram
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
     # Run the bot until the user presses Ctrl-C
     application.run_polling()
 
 
-def get_bot_key():
-    load_dotenv(dotenv_path='./.env')
-    BOT_KEY = os.getenv('BOT_KEY')
-    return BOT_KEY
-
-    
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
